@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: c8eb8a02c5c110446ab317b2f0676d7a
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - teleportVfxPrefab: {fileID: 100000, guid: 56c8253302244df4ca65f2a7ca71b55f, type: 3}
+  - chargeSound: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
