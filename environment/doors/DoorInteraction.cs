@@ -20,17 +20,15 @@ public class DoorInteraction : MonoBehaviour
         closedRotation = doorHinge.rotation;
         openRotation = doorHinge.rotation * Quaternion.Euler(0, openAngle, 0);
         
-        if (debugMode) Debug.Log("Door initialized. Use E key when near to open/close.");
-        
         // Make sure there's a collider set as trigger
         Collider col = GetComponent<Collider>();
         if (col == null)
         {
-            Debug.LogError("Door is missing a collider! Add a collider and set it as trigger.");
+            // No debug message
         }
         else if (!col.isTrigger)
         {
-            Debug.LogWarning("Door collider is not set as trigger! Enable 'Is Trigger' in the inspector.");
+            // No debug message
         }
     }
 
@@ -39,7 +37,6 @@ public class DoorInteraction : MonoBehaviour
         if (isPlayerNear && Input.GetKeyDown(KeyCode.E))
         {
             isOpen = !isOpen;
-            if (debugMode) Debug.Log("Door state changed to: " + (isOpen ? "Open" : "Closed"));
         }
 
         doorHinge.rotation = Quaternion.Slerp(
@@ -54,7 +51,6 @@ public class DoorInteraction : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             isPlayerNear = true;
-            if (debugMode) Debug.Log("Player entered door trigger zone");
         }
     }
 
@@ -63,7 +59,6 @@ public class DoorInteraction : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             isPlayerNear = false;
-            if (debugMode) Debug.Log("Player exited door trigger zone");
         }
     }
 }

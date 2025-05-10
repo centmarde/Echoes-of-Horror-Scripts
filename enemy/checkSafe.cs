@@ -28,10 +28,10 @@ public class checkSafe : MonoBehaviour
         // Check if the enemy entered a safe zone (note: the enemy has this script)
         if (collision.gameObject.CompareTag("SafeZone") && enemyAiComponent != null)
         {
-            Debug.Log("Enemy entered safe zone - teleporting away");
+            // Debug.Log("Enemy entered safe zone - teleporting away");
             TeleportToSpawnPosition();
         }
-        Debug.Log($"Enemy {gameObject.name} entered safe zone: {collision.gameObject.name}");
+       /*  Debug.Log($"Enemy {gameObject.name} entered safe zone: {collision.gameObject.name}"); */
     }
 
     // Check if a position is within any safe zone
