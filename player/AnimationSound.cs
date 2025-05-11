@@ -4,7 +4,7 @@ public class AnimationSound : MonoBehaviour
 {
     [Header("Audio Settings")]
     [SerializeField] private AudioSource audioSource;
-    [SerializeField] private AudioClip textingSound;
+    [SerializeField] private AudioClip[] textingSounds; // Changed to array
     [SerializeField] private float textingVolume = 2.0f;
 
     private void Awake()
@@ -25,13 +25,28 @@ public class AnimationSound : MonoBehaviour
     // This function will be called by the 'Texting' animation event
     public void PlayTextingSound()
     {
-        if (audioSource != null && textingSound != null)
+        if (audioSource != null && textingSounds != null && textingSounds.Length > 0)
         {
-            audioSource.PlayOneShot(textingSound, textingVolume);
+            // Pick a random sound from the array
+            AudioClip randomSound = GetRandomTextingSound();
+            if (randomSound != null)
+            {
+                audioSource.PlayOneShot(randomSound, textingVolume);
+            }
         }
         else
         {
-            Debug.LogWarning("Texting sound or audio source not assigned in AnimationSound script.");
+            Debug.LogWarning("Texting sounds or audio source not assigned in AnimationSound script.");
         }
+    }
+
+    // Get a random texting sound from the array
+    private AudioClip GetRandomTextingSound()
+    {
+        if (textingSounds == null || textingSounds.Length == 0)
+            return null;
+
+        int randomIndex = Random.Range(0, textingSounds.Length);
+        return textingSounds[randomIndex];
     }
 }
