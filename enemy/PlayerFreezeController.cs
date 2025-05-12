@@ -23,18 +23,22 @@ public class PlayerFreezeController : MonoBehaviour
     public UnityEvent onPlayerFreeze;
     public UnityEvent onPlayerUnfreeze;
     
-    [Header("Scene Restart")]
-    [Tooltip("Whether to restart the scene when player is caught")]
-    public bool restartSceneOnCatch = true;
+    [Header("Player Reset")]
+    [Tooltip("Whether to reset the player position when caught")]
+    public bool resetPlayerOnCatch = true;
     
-    [Tooltip("Delay before restarting the scene (in seconds)")]
-    public float restartDelay = 2.0f;
+    [Tooltip("Delay before resetting the player (in seconds)")]
+    public float resetDelay = 2.0f;
+    
+    [Tooltip("Transform to use as the respawn position (optional)")]
+    public Transform respawnPoint;
     
     // Private references
     private enemyAi enemyAI;
     private FirstPersonController playerController;
     private bool isPlayerFrozen = false;
     private Coroutine freezeCoroutine;
+    private Vector3 originalEnemyPosition; // Add variable for original position
     
     private void Awake()
     {
@@ -44,6 +48,9 @@ public class PlayerFreezeController : MonoBehaviour
     
     private void Start()
     {
+        // Store the original enemy position
+        originalEnemyPosition = transform.position;
+        
         // Find the player's FirstPersonController component
         if (enemyAI.player != null)
         {
@@ -51,6 +58,26 @@ public class PlayerFreezeController : MonoBehaviour
             if (playerController == null)
             {
                 Debug.LogError("PlayerFreezeController could not find FirstPersonController on player. Player freezing will not work.");
+            }
+            else
+            {
+                // Create the PlayerSpawnManager if it doesn't exist
+                if (PlayerSpawnManager.Instance == null)
+                {
+                    GameObject spawnManagerObj = new GameObject("PlayerSpawnManager");
+                    PlayerSpawnManager spawnManager = spawnManagerObj.AddComponent<PlayerSpawnManager>();
+                    
+                    // If respawnPoint is set, assign it to the spawn manager
+                    if (respawnPoint != null)
+                    {
+                        spawnManager.manualSpawnPoint = respawnPoint;
+                    }
+                }
+                else if (respawnPoint != null)
+                {
+                    // If PlayerSpawnManager already exists but we have a specified respawnPoint, update it
+                    PlayerSpawnManager.Instance.manualSpawnPoint = respawnPoint;
+                }
             }
         }
         else
@@ -118,14 +145,20 @@ public class PlayerFreezeController : MonoBehaviour
         // Trigger the freeze event
         onPlayerFreeze?.Invoke();
         
+        // Increment the catch counter
+        if (CatchCounter.Instance != null)
+        {
+            CatchCounter.Instance.IncrementCatchCount();
+        }
+        
         Debug.Log("Player has been frozen!");
         
-        // Restart the scene if enabled
-        if (restartSceneOnCatch)
+        // Reset player if enabled
+        if (resetPlayerOnCatch)
         {
-            StartCoroutine(RestartSceneAfterDelay());
+            StartCoroutine(ResetPlayerAfterDelay());
         }
-        // Only start the unfreeze timer if we're not restarting the scene
+        // Only start the unfreeze timer if we're not resetting the player
         else if (freezeDuration > 0)
         {
             if (freezeCoroutine != null)
@@ -157,7 +190,7 @@ public class PlayerFreezeController : MonoBehaviour
         UnfreezePlayer();
     }
     
-    private IEnumerator RestartSceneAfterDelay()
+    private IEnumerator ResetPlayerAfterDelay()
     {
         // Stop the enemy AI immediately when caught
         if (enemyAI != null)
@@ -178,13 +211,14 @@ public class PlayerFreezeController : MonoBehaviour
             Animator enemyAnimator = enemyAI.GetComponent<Animator>();
             if (enemyAnimator != null && enemyAnimator.enabled)
             {
-                // Set animation speed to 0 or pause it
+                // Set animation speed to 1
                 enemyAnimator.speed = 1;
             }
         }
         
         // Add catch sequence manager to handle the capture animation
         CatchSequenceManager sequenceManager = gameObject.AddComponent<CatchSequenceManager>();
+        sequenceManager.stopAfterCatch = true;
         
         // Setup the sequence manager with necessary references
         if (playerController != null && playerController.playerCamera != null)
@@ -201,13 +235,95 @@ public class PlayerFreezeController : MonoBehaviour
         }
         
         // Wait for the specified delay after sequence completes
-        yield return new WaitForSeconds(restartDelay);
+        yield return new WaitForSeconds(resetDelay);
         
-        // Get the current scene and reload it
-        Scene currentScene = SceneManager.GetActiveScene();
-        SceneManager.LoadScene(currentScene.name);
+        // Reset player position and rotation
+        if (playerController != null)
+        {
+            // Get player's original spawn position from the PlayerSpawnManager
+            Vector3 spawnPos;
+            Quaternion spawnRot;
+            
+            if (PlayerSpawnManager.Instance != null)
+            {
+                spawnPos = PlayerSpawnManager.Instance.GetSpawnPosition();
+                spawnRot = PlayerSpawnManager.Instance.GetSpawnRotation();
+                Debug.Log($"Resetting player to spawn position from PlayerSpawnManager: {spawnPos}");
+            }
+            else if (respawnPoint != null)
+            {
+                // Fallback to respawn point if set
+                spawnPos = respawnPoint.position;
+                spawnRot = respawnPoint.rotation;
+                Debug.Log($"Resetting player to respawn point: {spawnPos}");
+            }
+            else
+            {
+                // Last resort: Use a safe position away from the enemy
+                spawnPos = transform.position + transform.forward * -10f;
+                spawnRot = Quaternion.identity;
+                Debug.LogWarning("No spawn position found, using fallback position!");
+            }
+            
+            // Ensure CatchSequenceManager doesn't affect player anymore
+            if (sequenceManager != null)
+            {
+                sequenceManager.StopSequence();
+                Destroy(sequenceManager);
+            }
+            
+            // Get CharacterController if it exists
+            CharacterController charController = playerController.GetComponent<CharacterController>();
+            if (charController != null)
+            {
+                // Disable CharacterController temporarily to avoid collision issues during teleport
+                charController.enabled = false;
+                playerController.transform.position = spawnPos;
+                playerController.transform.rotation = spawnRot;
+                charController.enabled = true;
+            }
+            else
+            {
+                // Direct position reset if no CharacterController
+                playerController.transform.position = spawnPos;
+                playerController.transform.rotation = spawnRot;
+            }
+            
+            // Re-enable the player controller
+            UnfreezePlayer();
+            
+            Debug.Log("Player has been reset to spawn position!");
+        }
         
-        Debug.Log("Scene restarted after player was caught!");
+        // Re-enable enemy AI and reset its state
+        if (enemyAI != null)
+        {
+            // Reset enemy state first to ensure proper initialization
+            enemyAI.ResetState();
+            
+            // Reset the playerCatch animation parameter
+            Animator enemyAnimator = enemyAI.GetComponent<Animator>();
+            if (enemyAnimator != null)
+            {
+                enemyAnimator.SetBool("playerCatch", false);
+                Debug.Log("Reset playerCatch animation parameter to false");
+            }
+            
+            // Return to normal AI behavior
+            enemyAI.enabled = true;
+            
+            // Re-enable rigidbody physics
+            Rigidbody enemyRb = enemyAI.GetComponent<Rigidbody>();
+            if (enemyRb != null)
+            {
+                enemyRb.isKinematic = false;
+            }
+            
+            // Apply the original position instead of newEnemyPosition
+            enemyAI.transform.position = originalEnemyPosition;
+            
+            Debug.Log($"Enemy has been reset and teleported to original position: {originalEnemyPosition}");
+        }
     }
     
     private void OnDrawGizmosSelected()

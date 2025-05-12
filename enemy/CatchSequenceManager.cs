@@ -53,6 +53,10 @@ public class CatchSequenceManager : MonoBehaviour
     [Tooltip("Reference to the monster's Animator component")]
     public Animator monsterAnimator;
     
+    [Header("Sequence Control")]
+    [Tooltip("If true, the catch sequence will stop after completing")]
+    public bool stopAfterCatch = false;
+    
     private Transform monsterTransform;
     private Transform playerTransform;
     private Transform playerCamera;
@@ -63,6 +67,7 @@ public class CatchSequenceManager : MonoBehaviour
     private bool isShaking = false;
     private Vector3 originalPlayerPos;
     private Light monsterSpotlight;
+    private bool shouldStopSequence = false;
     
     private void Awake()
     {
@@ -152,8 +157,8 @@ public class CatchSequenceManager : MonoBehaviour
         // Start camera shake
         StartCoroutine(ShakeCamera());
         
-        // Lift player slightly
-        StartCoroutine(LiftPlayer());
+        // Lift player slightly - store the coroutine so we can stop it if needed
+        Coroutine liftCoroutine = StartCoroutine(LiftPlayer());
         
         // Play catch sound if available
         if (catchSound != null)
@@ -170,8 +175,15 @@ public class CatchSequenceManager : MonoBehaviour
             spotlightManager.RemoveSpotlight();
         }
            
-        // Do NOT reset the animation state - let it continue playing
-        // The animation will continue until it completes naturally
+        // If stopAfterCatch is true, stop all coroutines and clean up
+        if (stopAfterCatch)
+        {
+            shouldStopSequence = true;
+            StopCoroutine(liftCoroutine);
+            
+            // Destroy this component when done
+            Destroy(this);
+        }
     }
     
     // Turn monster to face player
@@ -316,8 +328,14 @@ public class CatchSequenceManager : MonoBehaviour
         float duration = playerLiftDuration;
         float elapsed = 0f;
         
-        while (elapsed < duration)
+        while (elapsed < duration && !shouldStopSequence)
         {
+            // Skip position updates if we should stop the sequence
+            if (shouldStopSequence)
+            {
+                yield break;
+            }
+            
             // Update direction to monster (in case monster moves)
             directionToMonster = (monsterTransform.position - playerTransform.position).normalized;
             directionToMonster.y = 0;
@@ -336,6 +354,19 @@ public class CatchSequenceManager : MonoBehaviour
                
             elapsed += Time.deltaTime;
             yield return null;
+        }
+    }
+    
+    // Method to forcefully stop all sequence effects
+    public void StopSequence()
+    {
+        shouldStopSequence = true;
+        StopAllCoroutines();
+        
+        // Reset camera position if needed
+        if (playerCamera != null)
+        {
+            playerCamera.localPosition = originalCameraPos;
         }
     }
 }

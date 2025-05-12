@@ -554,6 +554,34 @@ public class enemyAi : MonoBehaviour
         }
     }
 
+    // Add a ResetState method to handle resetting the enemy state after a catch sequence
+    public void ResetState()
+    {
+        // Reset to idle state
+        currentState = AIState.Idle;
+        
+        // Reset animation parameters
+        if (animator != null)
+        {
+            animator.SetBool("isPlayerInsight", false);
+            animator.SetFloat("speed", 0);
+        }
+        
+        // Reset pursuit variables
+        isOutOfSightTimerActive = false;
+        outOfSightTimer = 0f;
+        
+        // Set new roam target
+        SetNewRoamTarget();
+        isWaiting = false;
+        
+        // Reset catch sequence flag
+        isCatchSequenceActive = false;
+        
+        // Re-enable the AI component just in case
+        enabled = true;
+    }
+
     // Keep this CancelChase method in enemyAi for internal state management
     public void CancelChase()
     {
