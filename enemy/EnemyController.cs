@@ -19,6 +19,13 @@ public class EnemyController : MonoBehaviour
     [Tooltip("Enemy tag to look for (leave empty for all enemyAi components)")]
     public string enemyTag = "Enemy";
 
+    [Header("Rotation Ability Cooldown")]
+    [Tooltip("Cooldown time in seconds before rotation can be used again")]
+    public float rotationCooldown = 10f;
+    
+    [Tooltip("Visual feedback UI element for cooldown (optional)")]
+    public UnityEngine.UI.Image cooldownIndicator;
+
     [Header("Flashlight Effect")]
     [Tooltip("Whether the enemy can be frozen by flashlight")]
     public bool canBeFrozenByFlashlight = true;
@@ -40,6 +47,10 @@ public class EnemyController : MonoBehaviour
     private float originalChaseSpeed;
     private float originalSlowSpeed;
     private float originalRoamSpeed;
+    
+    // Cooldown tracking variables
+    private float lastRotationTime = -1000f; // Initialize to allow immediate first use
+    private bool isRotationOnCooldown = false;
 
     void Start()
     {
@@ -51,14 +62,65 @@ public class EnemyController : MonoBehaviour
         {
             StoreOriginalSpeeds();
         }
+        
+        // Initialize cooldown indicator if assigned
+        if (cooldownIndicator != null)
+        {
+            cooldownIndicator.fillAmount = 0;
+            cooldownIndicator.gameObject.SetActive(false);
+        }
     }
 
     void Update()
     {
-        // Check for key press
-        if (Input.GetKeyDown(rotationKey))
+        // Handle cooldown logic
+        HandleRotationCooldown();
+        
+        // Check for key press only if not on cooldown
+        if (Input.GetKeyDown(rotationKey) && !isRotationOnCooldown)
         {
             TriggerEnemyRotation();
+            // Start cooldown
+            lastRotationTime = Time.time;
+            isRotationOnCooldown = true;
+            
+            // Show and initialize cooldown indicator
+            if (cooldownIndicator != null)
+            {
+                cooldownIndicator.fillAmount = 1;
+                cooldownIndicator.gameObject.SetActive(true);
+            }
+        }
+    }
+    
+    // Handle cooldown logic and visual feedback
+    private void HandleRotationCooldown()
+    {
+        if (isRotationOnCooldown)
+        {
+            float timeSinceLastRotation = Time.time - lastRotationTime;
+            
+            if (timeSinceLastRotation >= rotationCooldown)
+            {
+                // Cooldown complete
+                isRotationOnCooldown = false;
+                
+                // Hide cooldown indicator when done
+                if (cooldownIndicator != null)
+                {
+                    cooldownIndicator.gameObject.SetActive(false);
+                }
+            }
+            else
+            {
+                // Update cooldown indicator if available
+                if (cooldownIndicator != null)
+                {
+                    // Calculate remaining cooldown percentage (decreasing from 1 to 0)
+                    float cooldownRemaining = 1 - (timeSinceLastRotation / rotationCooldown);
+                    cooldownIndicator.fillAmount = cooldownRemaining;
+                }
+            }
         }
     }
 
@@ -224,5 +286,21 @@ public class EnemyController : MonoBehaviour
     public bool IsFrozen()
     {
         return isFrozen;
+    }
+    
+    // Public method to check if rotation ability is on cooldown
+    public bool IsRotationOnCooldown()
+    {
+        return isRotationOnCooldown;
+    }
+    
+    // Public method to get cooldown progress (0-1, where 0 means ready)
+    public float GetRotationCooldownProgress()
+    {
+        if (!isRotationOnCooldown)
+            return 0;
+            
+        float timeSinceLastRotation = Time.time - lastRotationTime;
+        return 1 - Mathf.Clamp01(timeSinceLastRotation / rotationCooldown);
     }
 }
