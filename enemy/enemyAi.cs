@@ -22,6 +22,9 @@ public class enemyAi : MonoBehaviour
     [Tooltip("Minimum distance to keep from the player")]
     public float minFollowDistance = 2f;
     
+    [Tooltip("Proximity range where enemy can sense player regardless of vision")]
+    public float proximityDetectionRange = 15f;
+    
     [Tooltip("Movement speed when the player is out of detection radius")]
     public float slowSpeed = 0.3f;
     
@@ -217,6 +220,57 @@ public class enemyAi : MonoBehaviour
     {
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
         isPlayerInRange = distanceToPlayer <= maxFollowRange;
+        
+        // First check proximity - can sense player regardless of vision cone if very close
+        if (distanceToPlayer <= proximityDetectionRange)
+        {
+            // Check if something is blocking direct line to player
+            Vector3 playerHeadPosition = player.position + new Vector3(0, targetHeadOffset, 0);
+            Vector3 directionToPlayer = (playerHeadPosition - transform.position).normalized;
+            
+            bool hasLineOfSight = true;
+            if (requireLineOfSight)
+            {
+                // Start raycast from enemy's eye level
+                Vector3 eyePosition = transform.position + Vector3.up * 1.5f;
+                
+                // Cast ray to player's head
+                RaycastHit hit;
+                if (Physics.Raycast(eyePosition, directionToPlayer, out hit, proximityDetectionRange, visionObstructionMask))
+                {
+                    // If we hit something that's not the player, we don't have line of sight
+                    if (hit.transform != player)
+                    {
+                        hasLineOfSight = false;
+                    }
+                }
+            }
+            
+            if (hasLineOfSight || !requireLineOfSight)
+            {
+                // Player is very close! Alert the enemy regardless of vision cone
+                if (showDebugInfo && !isPlayerInSight)
+                {
+                    Debug.Log("Enemy detected player by proximity!");
+                }
+                
+                // If player was previously not in sight, reset the timer
+                if (!isPlayerInSight)
+                {
+                    isOutOfSightTimerActive = false;
+                    outOfSightTimer = 0f;
+                }
+                
+                isPlayerInSight = true;
+                // Update animation parameter immediately
+                if (animator != null)
+                {
+                    animator.SetBool("isPlayerInsight", true);
+                }
+                currentState = AIState.Chasing;
+                return;
+            }
+        }
            
         if (isPlayerInRange)
         {
@@ -502,26 +556,109 @@ public class enemyAi : MonoBehaviour
     // Make this method public so it can be called from checkSafe
     public void SetNewRoamTarget()
     {
-        // Get random point within roam radius of spawn point
-        Vector2 randomCircle = Random.insideUnitCircle * roamRadius;
-        Vector3 randomPoint = spawnPosition + new Vector3(randomCircle.x, 0, randomCircle.y);
+        // Maximum attempts to find a valid position
+        int maxAttempts = 10;
+        Vector3 validPosition = Vector3.zero;
+        bool foundValidPosition = false;
         
-        // Check for valid ground position
-        RaycastHit hit;
-        if (Physics.Raycast(randomPoint + Vector3.up * 10, Vector3.down, out hit, 20f))
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
         {
-            // Use the hit point as the target position
-            randomPoint = hit.point;
+            // Get random point within roam radius of spawn point
+            Vector2 randomCircle = Random.insideUnitCircle * roamRadius;
+            Vector3 randomPoint = spawnPosition + new Vector3(randomCircle.x, 0, randomCircle.y);
+            
+            // Check for valid ground position
+            RaycastHit hit;
+            if (Physics.Raycast(randomPoint + Vector3.up * 10, Vector3.down, out hit, 20f))
+            {
+                // Use the hit point as the target position
+                randomPoint = hit.point;
+                
+                // Check if there's a clear path to this position
+                Vector3 direction = randomPoint - transform.position;
+                direction.y = 0; // Make horizontal
+                float distance = direction.magnitude;
+                
+                if (distance > 0.5f)
+                {
+                    // Check for obstacles in the path
+                    RaycastHit obstacleHit;
+                    bool hasObstacle = Physics.Raycast(
+                        transform.position + Vector3.up * 0.5f,
+                        direction.normalized,
+                        out obstacleHit,
+                        distance);
+                        
+                    // If no obstacles or obstacle is far enough away, consider it valid
+                    if (!hasObstacle || obstacleHit.distance > Mathf.Min(5f, distance * 0.7f))
+                    {
+                        // Check if point is in a safe zone, if so, find an alternative
+                        if (!checkSafe.IsPositionInSafeZone(randomPoint))
+                        {
+                            // Found a valid position
+                            validPosition = randomPoint;
+                            foundValidPosition = true;
+                            break;
+                        }
+                        else
+                        {
+                            // If in safe zone, try to find nearby non-safe position
+                            Vector3 safePosition = checkSafe.GetNearestPointOutsideSafeZone(randomPoint);
+                            
+                            // Verify this safe position doesn't have obstacles
+                            direction = safePosition - transform.position;
+                            direction.y = 0;
+                            distance = direction.magnitude;
+                            
+                            if (distance > 0.5f)
+                            {
+                                if (!Physics.Raycast(
+                                    transform.position + Vector3.up * 0.5f,
+                                    direction.normalized,
+                                    Mathf.Min(5f, distance * 0.7f)))
+                                {
+                                    validPosition = safePosition;
+                                    foundValidPosition = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         
-        // Check if point is in a safe zone, if so, find an alternative
-        if (checkSafe.IsPositionInSafeZone(randomPoint))
+        // If we couldn't find any valid position after all attempts, try a position nearby
+        if (!foundValidPosition)
         {
-            // Try to find a safe position
-            randomPoint = checkSafe.GetNearestSafePosition(randomPoint, transform.position);
+            // Choose a random direction
+            Vector2 randomDir = Random.insideUnitCircle.normalized;
+            Vector3 shortRandomMove = new Vector3(randomDir.x, 0, randomDir.y) * 3f; // Short distance
+            
+            // Raycast to ensure it's on the ground
+            RaycastHit hit;
+            if (Physics.Raycast(transform.position + shortRandomMove + Vector3.up * 5f, Vector3.down, out hit, 10f))
+            {
+                validPosition = hit.point;
+            }
+            else
+            {
+                // Fallback to current position but slightly offset
+                validPosition = transform.position + shortRandomMove;
+            }
+            
+            if (checkSafe.IsPositionInSafeZone(validPosition))
+            {
+                validPosition = checkSafe.GetNearestPointOutsideSafeZone(validPosition);
+            }
         }
         
-        targetRoamPosition = randomPoint;
+        if (showDebugInfo)
+        {
+            Debug.Log($"Enemy setting new roam target to {validPosition}, valid position found: {foundValidPosition}");
+        }
+        
+        targetRoamPosition = validPosition;
     }
 
     // New method to handle catch sequence state
@@ -615,6 +752,10 @@ public class enemyAi : MonoBehaviour
         // Draw max follow range
         Gizmos.color = isPlayerInRange ? Color.red : Color.yellow;
         Gizmos.DrawWireSphere(transform.position, maxFollowRange);
+        
+        // Draw proximity detection range
+        Gizmos.color = new Color(1f, 0.5f, 0f, 0.7f); // Orange
+        Gizmos.DrawWireSphere(transform.position, proximityDetectionRange);
         
         // Draw min follow distance
         Gizmos.color = Color.blue;

@@ -17,9 +17,22 @@ public class flashlight : MonoBehaviour
     public float batteryRemaining;           // Current battery level
     public float batteryDrainRate = 1f;      // How quickly battery drains when on
     
+    [Header("Enemy Detection")]
+    [Tooltip("Maximum distance to detect enemies")]
+    public float detectionDistance = 20f;
+    
+    [Tooltip("Cone angle for enemy detection")]
+    public float detectionConeAngle = 30f;
+    
+    [Tooltip("Should enemies teleport when hit by flashlight")]
+    public bool enableEnemyTeleport = true;
+    
     // Reference to the FirstPersonController for UI
     private FirstPersonController playerController;
     private bool hasInitializedUI = false;
+    
+    // Add a reference to the detector
+    private FlashlightDetector detector;
     
     // Start is called before the first frame update
     void Start()
@@ -37,6 +50,23 @@ public class flashlight : MonoBehaviour
         if (flashlightLight != null)
         {
             flashlightLight.enabled = isOn;
+        }
+        
+        // Setup enemy detection
+        SetupDetector();
+    }
+
+    // Setup the detector component
+    private void SetupDetector()
+    {
+        detector = GetComponent<FlashlightDetector>();
+        
+        // Add detector if it doesn't exist
+        if (detector == null)
+        {
+            detector = gameObject.AddComponent<FlashlightDetector>();
+            detector.maxDetectionDistance = detectionDistance;
+            detector.detectionAngle = detectionConeAngle;
         }
     }
 
