@@ -6,6 +6,7 @@ public class checkSafe : MonoBehaviour
 {
     private static List<Collider> safeZones = new List<Collider>();
     private enemyAi enemyAiComponent;
+    private enemyAi2 enemyAi2Component;
     
     // References needed for teleporting
     private Rigidbody enemyRigidbody;
@@ -14,6 +15,7 @@ public class checkSafe : MonoBehaviour
     private void Awake()
     {
         enemyAiComponent = GetComponent<enemyAi>();
+        enemyAi2Component = GetComponent<enemyAi2>();
         enemyRigidbody = GetComponent<Rigidbody>();
     }
     
@@ -26,7 +28,7 @@ public class checkSafe : MonoBehaviour
     private void OnCollisionEnter(Collision collision)
     {
         // Check if the enemy entered a safe zone (note: the enemy has this script)
-        if (collision.gameObject.CompareTag("SafeZone") && enemyAiComponent != null)
+        if (collision.gameObject.CompareTag("SafeZone") && (enemyAiComponent != null || enemyAi2Component != null))
         {
             // Debug.Log("Enemy entered safe zone - teleporting away");
             TeleportToSpawnPosition();
@@ -146,9 +148,13 @@ public class checkSafe : MonoBehaviour
         {
             enemyAiComponent.CancelChase();
         }
+        else if (enemyAi2Component != null)
+        {
+            enemyAi2Component.CancelChase();
+        }
         else
         {
-            Debug.LogError("Cannot cancel chase: enemyAi component not found!");
+            Debug.LogError("Cannot cancel chase: no enemyAi component found!");
         }
     }
 
@@ -198,6 +204,11 @@ public class checkSafe : MonoBehaviour
         if (enemyAiComponent != null)
         {
             enemyAiComponent.SetNewRoamTarget();
+        }
+        else if (enemyAi2Component != null)
+        {
+            // enemyAi2 doesn't have SetNewRoamTarget, so we'll just reset state
+            enemyAi2Component.ResetState();
         }
         
         // Wait an additional moment before reappearing
