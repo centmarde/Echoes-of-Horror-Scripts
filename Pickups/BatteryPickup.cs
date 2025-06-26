@@ -17,8 +17,17 @@ public class BatteryPickup : MonoBehaviour
     public float glowIntensity = 1.0f;
     public Color glowColor = Color.yellow;
     
+    [Header("Floating Effect")]
+    public bool enableFloating = true;
+    public float floatAmplitude = 0.5f;  // How high/low it floats
+    public float floatSpeed = 2f;        // How fast it floats
+    
+    private Vector3 startPosition;
+    
     private void Start()
     {
+        // Store the initial position for floating calculation
+        startPosition = transform.position;
         if(enableGlow)
         {
             // Add a light component for glow effect
@@ -60,6 +69,14 @@ public class BatteryPickup : MonoBehaviour
     // Optional: Add a rotating effect to make the battery more noticeable
     void Update()
     {
+        // Floating effect
+        if (enableFloating)
+        {
+            float newY = startPosition.y + Mathf.Sin(Time.time * floatSpeed) * floatAmplitude;
+            transform.position = new Vector3(startPosition.x, newY, startPosition.z);
+        }
+        
+        // Rotation effect
         transform.Rotate(Vector3.up, 50f * Time.deltaTime);
     }
 }
