@@ -60,11 +60,6 @@ A complete first-person player controller with the following features:
 ## Usage
 This controller is designed for horror games requiring smooth first-person movement with stamina management and atmospheric features like flashlight integration. The script provides a solid foundation for survival horror gameplay mechanics.
 
-## Dependencies
-- Unity Engine
-- Unity UI System
-- Unity Editor (for custom inspector)
-
 ## File Structure
 - `playerScript.md` - Main first-person controller implementation
 - `showSpot.cs` - Additional utility script
