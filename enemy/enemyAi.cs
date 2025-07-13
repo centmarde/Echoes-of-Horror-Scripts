@@ -95,7 +95,7 @@ public class enemyAi : MonoBehaviour
     // Add reference to the checkSafe component
     private checkSafe safeZoneChecker;
 
-    private void Start()
+    protected virtual void Start()
     {
         // Get the Rigidbody component
         rb = GetComponent<Rigidbody>();
@@ -161,7 +161,7 @@ public class enemyAi : MonoBehaviour
         }
     }
 
-    private void Update()
+    protected virtual void Update()
     {
         if (player == null)
             return;
@@ -745,7 +745,7 @@ public class enemyAi : MonoBehaviour
     // private IEnumerator DisappearAndTeleport() { ... }
 
     // Visualize the follow range and vision in the editor
-    private void OnDrawGizmosSelected()
+    protected virtual void OnDrawGizmosSelected()
     {
         if (!showDebugInfo) return;
 
