@@ -116,7 +116,7 @@ public class LightAvoidance : MonoBehaviour
         
         // Check if the collided object has a Light component and the correct tag
         Light lightComponent = other.GetComponent<Light>();
-        if (lightComponent != null && other.CompareTag("ligt"))
+        if (lightComponent != null && other.CompareTag("light"))
         {
             isInLightContact = true;
             lastLightSourceName = other.gameObject.name;
@@ -136,7 +136,7 @@ public class LightAvoidance : MonoBehaviour
         
         // Check if the collided object has a Light component and the correct tag
         Light lightComponent = collision.gameObject.GetComponent<Light>();
-        if (lightComponent != null && collision.gameObject.CompareTag("ligt"))
+        if (lightComponent != null && collision.gameObject.CompareTag("light"))
         {
             isInLightContact = true;
             lastLightSourceName = collision.gameObject.name;
@@ -314,7 +314,7 @@ public class LightAvoidance : MonoBehaviour
         Light[] allLights = FindObjectsOfType<Light>();
         foreach (Light light in allLights)
         {
-            if (light.CompareTag("ligt"))
+            if (light.CompareTag("light"))
             {
                 float distance = Vector3.Distance(transform.position, light.transform.position);
                 float checkRadius = Mathf.Max(lightDetectionRadius, light.range);
