@@ -1,32 +1,30 @@
 # Simple Inventory System for Unity
 ## Horror Game FirstPersonController Integration
 
-This inventory system provides a complete, easy-to-use inventory solution that integrates seamlessly with your FirstPersonController. It includes UI management, item pickup functionality, and proper player control integration.
+This inventory system provides a complete, easy-to-use inventory solution that integrates seamlessly with your FirstPersonController. It includes text-based inventory display, item pickup functionality, and proper player control integration.
 
 ## Features
 
-- **Simple Grid-Based Inventory**: Configurable slot-based inventory system
+- **Simple Text-Based Inventory**: Clean text display showing items and quantities
+- **5-Slot Maximum**: Limited to 5 inventory slots for focused gameplay
 - **Item Stacking**: Support for stackable items with configurable stack sizes
-- **Visual UI**: Canvas-based inventory interface with hover effects
+- **Visual UI**: Canvas-based inventory interface with TextMeshPro
 - **Item Pickup**: Complete pickup system with visual and audio feedback
 - **Player Integration**: Seamless integration with FirstPersonController
 - **Audio Support**: Pickup, drop, and UI sounds
-- **Mouse Controls**: Full mouse support when inventory is open
 - **Event System**: Callbacks for item addition, removal, and inventory state changes
+- **Scavenge Integration**: Automatic item discovery and inventory addition
 
 ## Components
 
 ### 1. InventorySystem.cs
-Main inventory logic and UI management.
+Main inventory logic and text-based UI management.
 
-### 2. InventorySlot.cs
-Individual slot behavior and mouse interactions.
-
-### 3. PickupItem.cs
-World items that can be picked up by the player.
-
-### 4. FirstPersonInventoryController.cs
+### 2. FirstPersonInventoryController.cs
 Bridge component that integrates inventory with your FirstPersonController.
+
+### 3. MainComponent.cs (Scavenge System Integration)
+Scavenge system that automatically adds found items to the player's inventory.
 
 ---
 
@@ -46,36 +44,22 @@ Bridge component that integrates inventory with your FirstPersonController.
 2. **Create Inventory Panel**:
    - Right-click InventoryCanvas → UI → Panel
    - Name it "InventoryPanel"
-   - Resize to your preferred size (recommend 400x300)
+   - Resize to fit text display (recommend 300x200)
    - Center it on screen
 
-3. **Create Slots Grid**:
-   - Right-click InventoryPanel → UI → Panel
-   - Name it "SlotsParent"
-   - Add Grid Layout Group component:
-     - Cell Size: 60x60
-     - Spacing: 5x5
-     - Child Alignment: Upper Left
-     - Constraint: Fixed Column Count (4 recommended)
+3. **Create Inventory Text Display**:
+   - Right-click InventoryPanel → UI → Text - TextMeshPro
+   - Name it "InventoryListText"
+   - Set font size to 14-16
+   - Set color to white
+   - Enable "Word Wrap" if needed
+   - Anchor to fill parent with margins
+   - Set text alignment to Upper Left
 
-4. **Create Slot Prefab**:
-   - Right-click SlotsParent → UI → Image
-   - Name it "InventorySlot"
-   - Set Image color to semi-transparent (e.g., 0.2 alpha)
-   - Add child Image named "ItemIcon":
-     - Anchor to fill parent with small margins
-     - Set Image color to white
-     - Disable "Raycast Target"
-   - Add child TextMeshPro - Text (UI) named "QuantityText":
-     - Anchor to bottom-right corner
-     - Small font size (12-14)
-     - White color with outline
-     - Disable "Raycast Target"
-
-5. **Create Item Info Panel**:
+4. **Create Item Info Panel** (Optional):
    - Right-click InventoryPanel → UI → Panel
    - Name it "ItemInfoPanel"
-   - Position on right side of inventory (resize to about 150x200)
+   - Position beside inventory text (resize to about 200x150)
    - Add child Image named "ItemIconDisplay":
      - Position at top of panel
      - Set size to 64x64 pixels
@@ -92,10 +76,6 @@ Bridge component that integrates inventory with your FirstPersonController.
      - Enable "Word Wrap" in TextMeshPro component
      - Set text alignment to Upper Left
 
-6. **Convert Slot to Prefab**:
-   - Drag InventorySlot from Hierarchy to Project folder
-   - Delete the InventorySlot from SlotsParent (keep the empty SlotsParent)
-
 ### Step 2: Setup Player Integration
 
 1. **Add Components to Player**:
@@ -108,14 +88,13 @@ Bridge component that integrates inventory with your FirstPersonController.
    ```
 
 2. **Configure InventorySystem**:
-   - Inventory Size: 12 (or desired number of slots)
+   - Inventory Size: 5 (for 5-slot text-based inventory)
    - Inventory Key: I (changed from Tab to I key)
    - Inventory Canvas: Drag your InventoryCanvas
-   - Slots Parent: Drag your SlotsParent
-   - Slot Prefab: Drag your InventorySlot prefab
-   - Item Info Text: Drag ItemDescriptionText (from ItemInfoPanel)
-   - Item Name Text: Drag ItemNameText (from ItemInfoPanel)
-   - Item Icon Image: Drag ItemIconDisplay (from ItemInfoPanel)
+   - Inventory List Text: Drag your InventoryListText TextMeshPro component
+   - Item Info Text: Drag ItemDescriptionText (from ItemInfoPanel, optional)
+   - Item Name Text: Drag ItemNameText (from ItemInfoPanel, optional)
+   - Item Icon Image: Drag ItemIconDisplay (from ItemInfoPanel, optional)
 
 3. **Configure FirstPersonInventoryController**:
    - Inventory System: Should auto-assign
@@ -123,28 +102,23 @@ Bridge component that integrates inventory with your FirstPersonController.
    - Disable Sprint In Inventory: true
    - Disable Jump In Inventory: true
 
-### Step 3: Create Pickup Items
+### Step 3: Setup Scavenge System Integration
 
-1. **Create Pickup Item GameObject**:
-   - Create an empty GameObject in your scene
-   - Add a 3D model or primitive shape (e.g., Cube)
-   - Add Collider component (set as Trigger if needed)
-   - Add PickupItem component
+1. **Add MainComponent to Scavengeable Objects**:
+   - Select objects you want to be scavengeable
+   - Add MainComponent script to them
+   - Configure the scavenge settings
 
-2. **Configure PickupItem**:
-   - Item Name: "Health Potion"
-   - Item Description: "Restores health when used"
-   - Item Icon: Drag a sprite (create one or use Unity default)
-   - Quantity: 1
-   - Is Stackable: true (if you want multiple in one slot)
-   - Max Stack Size: 5
-   - Pickup Range: 3
-   - Pickup Key: E
-
-3. **Optional - Create Pickup UI**:
-   - Create World Space Canvas as child of pickup item
-   - Add Panel with TextMeshPro - Text (UI) showing "Press E to pickup"
-   - Assign to Pickup Prompt Canvas in PickupItem
+2. **Configure MainComponent**:
+   - Scavenge Key: Y (or your preferred key)
+   - Scavenge Time: 3 seconds (time to scavenge)
+   - Max Scavenge Uses: 3 (how many times object can be scavenged)
+   - Item Drop Chance: 0.7 (70% chance to find items)
+   - Add items to Possible Items list with:
+     - Item Name, Description, Icon
+     - Drop chance and quantity range
+     - Inventory properties (stackable, max stack size)
+     - Special properties (battery, health, key item)
 
 ### Step 4: Audio Setup (Optional)
 
@@ -162,17 +136,58 @@ Bridge component that integrates inventory with your FirstPersonController.
 
 ## Usage Examples
 
+### Text Display Format
+
+The inventory will display items in this format:
+```
+INVENTORY:
+• Key
+• Battery x3
+• Ammo x25
+• Health Potion
+
+[4/5]
+```
+
 ### Adding Items via Script
 
 ```csharp
-// Get the inventory controller
-FirstPersonInventoryController inventoryController = player.GetComponent<FirstPersonInventoryController>();
+// Get the inventory system
+InventorySystem inventorySystem = player.GetComponent<InventorySystem>();
 
-// Add a simple item
-inventoryController.AddItem("Key", "Opens doors", keyIcon);
+// Create and add a simple item
+InventoryItem keyItem = new InventoryItem
+{
+    itemName = "Key",
+    itemDescription = "Opens doors",
+    itemIcon = keyIcon,
+    isStackable = false
+};
+inventorySystem.AddItem(keyItem);
 
-// Add stackable item
-inventoryController.AddItem("Ammo", "Rifle ammunition", ammoIcon, 30, true, 100);
+// Create and add stackable item
+InventoryItem ammoItem = new InventoryItem
+{
+    itemName = "Ammo",
+    itemDescription = "Rifle ammunition", 
+    itemIcon = ammoIcon,
+    quantity = 30,
+    isStackable = true,
+    maxStackSize = 100
+};
+inventorySystem.AddItem(ammoItem);
+```
+
+### Integration with Scavenge System
+
+The MainComponent scavenge system automatically creates and adds items to the inventory:
+
+```csharp
+// Items are automatically added when scavenging
+// The text display updates automatically
+// Players can press 'I' to view their inventory
+// Maximum of 5 slots prevents inventory clutter
+```
 
 // Check if player has item
 if (inventoryController.HasItem("Key"))
@@ -183,29 +198,19 @@ if (inventoryController.HasItem("Key"))
 }
 ```
 
-### Creating Items from Code
+### Using Scavenge System
 
 ```csharp
-// Create an inventory item
-InventoryItem healthPotion = new InventoryItem(
-    "Health Potion",
-    "Restores 50 HP",
-    healthPotionIcon,
-    1,
-    true,  // stackable
-    5      // max stack size
-);
+// On a scavengeable object with MainComponent
+MainComponent scavenge = GetComponent<MainComponent>();
 
-// Add to inventory
-inventoryController.AddItem(healthPotion);
-```
-
-### Pickup Item from Script
-
-```csharp
-// On a pickup item GameObject
-PickupItem pickup = GetComponent<PickupItem>();
-pickup.SetItemData("Flashlight", "Illuminates dark areas", flashlightIcon);
+// Add custom items to scavenge list
+ScavengeItem customItem = new ScavengeItem();
+customItem.itemName = "Rare Artifact";
+customItem.itemDescription = "A mysterious ancient artifact";
+customItem.dropChance = 0.1f; // 10% chance
+customItem.isStackable = false;
+scavenge.possibleItems.Add(customItem);
 ```
 
 ---
@@ -228,8 +233,8 @@ pickup.SetItemData("Flashlight", "Illuminates dark areas", flashlightIcon);
 ### Functional Customization
 
 1. **Inventory Size**:
-   - Change `inventorySize` in InventorySystem
-   - Adjust Grid Layout Group columns accordingly
+   - Change `inventorySize` in InventorySystem (set to 5 for single row)
+   - Adjust Grid Layout Group columns accordingly (set to 5)
 
 2. **Pickup Controls**:
    - Change `pickupKey` in PickupItem components
@@ -261,10 +266,11 @@ pickup.SetItemData("Flashlight", "Illuminates dark areas", flashlightIcon);
    - Check that the GameObjects are active in the hierarchy
    - Ensure TextMeshPro package is imported (Window → TextMeshPro → Import TMP Essential Resources)
 
-4. **Pickup doesn't work**:
+4. **Scavenge system doesn't work**:
    - Verify player has "Player" tag
-   - Check pickup range in PickupItem
+   - Check that MainComponent is on scavengeable objects
    - Ensure InventorySystem is on the player
+   - Check scavenge range and collision setup
 
 4. **Mouse cursor issues**:
    - FirstPersonController.lockCursor should be true

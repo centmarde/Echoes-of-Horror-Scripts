@@ -34,7 +34,7 @@ public class InventorySystem : MonoBehaviour
 {
     [Header("Inventory Settings")]
     [Tooltip("Maximum number of items the inventory can hold")]
-    public int inventorySize = 12;
+    public int inventorySize = 5;
     
     [Tooltip("Key to open/close inventory")]
     public KeyCode inventoryKey = KeyCode.I; //key here
@@ -43,11 +43,8 @@ public class InventorySystem : MonoBehaviour
     [Tooltip("Main inventory canvas")]
     public Canvas inventoryCanvas;
     
-    [Tooltip("Parent object containing all inventory slots")]
-    public Transform slotsParent;
-    
-    [Tooltip("Prefab for inventory slot UI")]
-    public GameObject slotPrefab;
+    [Tooltip("TextMeshPro component to display inventory list")]
+    public TextMeshProUGUI inventoryListText;
     
     [Tooltip("TextMeshPro component to display item information")]
     public TextMeshProUGUI itemInfoText;
@@ -70,7 +67,6 @@ public class InventorySystem : MonoBehaviour
     
     // Private variables
     private List<InventoryItem> items = new List<InventoryItem>();
-    private List<InventorySlot> inventorySlots = new List<InventorySlot>();
     private bool isInventoryOpen = false;
     private FirstPersonController playerController;
     private AudioSource audioSource;
@@ -112,36 +108,41 @@ public class InventorySystem : MonoBehaviour
     
     void InitializeInventory()
     {
-        if (slotsParent == null || slotPrefab == null)
-        {
-            Debug.LogError("InventorySystem: Missing slot parent or slot prefab references!");
+        // Initialize the inventory display
+        UpdateInventoryDisplay();
+    }
+    
+    private void UpdateInventoryDisplay()
+    {
+        if (inventoryListText == null)
             return;
-        }
-        
-        // Clear existing slots
-        foreach (Transform child in slotsParent)
-        {
-            DestroyImmediate(child.gameObject);
-        }
-        inventorySlots.Clear();
-        
-        // Create inventory slots
-        for (int i = 0; i < inventorySize; i++)
-        {
-            GameObject slotObj = Instantiate(slotPrefab, slotsParent);
-            InventorySlot slot = slotObj.GetComponent<InventorySlot>();
             
-            if (slot == null)
+        string inventoryText = "INVENTORY:\n";
+        int itemCount = 0;
+        
+        foreach (InventoryItem item in items)
+        {
+            if (item != null)
             {
-                slot = slotObj.AddComponent<InventorySlot>();
+                itemCount++;
+                if (item.isStackable && item.quantity > 1)
+                {
+                    inventoryText += $"• {item.itemName} x{item.quantity}\n";
+                }
+                else
+                {
+                    inventoryText += $"• {item.itemName}\n";
+                }
             }
-            
-            slot.Initialize(i, this);
-            inventorySlots.Add(slot);
         }
         
-        // Initialize items list
-        items = new List<InventoryItem>(new InventoryItem[inventorySize]);
+        if (itemCount == 0)
+        {
+            inventoryText += "Empty";
+        }
+        
+        inventoryText += $"\n[{itemCount}/{inventorySize}]";
+        inventoryListText.text = inventoryText;
     }
     
     public void ToggleInventory()
@@ -207,7 +208,7 @@ public class InventorySystem : MonoBehaviour
                     newItem.quantity -= amountToAdd;
                     
                     // Update UI
-                    inventorySlots[i].UpdateSlot(items[i]);
+                    UpdateInventoryDisplay();
                     
                     if (newItem.quantity <= 0)
                     {
@@ -225,7 +226,7 @@ public class InventorySystem : MonoBehaviour
             if (items[i] == null)
             {
                 items[i] = newItem.Clone();
-                inventorySlots[i].UpdateSlot(items[i]);
+                UpdateInventoryDisplay();
                 
                 PlaySound(pickupSound);
                 OnItemAdded?.Invoke(newItem);
@@ -251,12 +252,12 @@ public class InventorySystem : MonoBehaviour
                     {
                         InventoryItem removedItem = items[i];
                         items[i] = null;
-                        inventorySlots[i].UpdateSlot(null);
+                        UpdateInventoryDisplay();
                         OnItemRemoved?.Invoke(removedItem);
                     }
                     else
                     {
-                        inventorySlots[i].UpdateSlot(items[i]);
+                        UpdateInventoryDisplay();
                     }
                     
                     PlaySound(dropSound);
@@ -273,7 +274,7 @@ public class InventorySystem : MonoBehaviour
         {
             InventoryItem removedItem = items[index];
             items[index] = null;
-            inventorySlots[index].UpdateSlot(null);
+            UpdateInventoryDisplay();
             
             PlaySound(dropSound);
             OnItemRemoved?.Invoke(removedItem);
