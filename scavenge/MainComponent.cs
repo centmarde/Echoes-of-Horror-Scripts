@@ -43,6 +43,7 @@ public class MainComponent : MonoBehaviour
     private bool playerInRange = false;
     private bool isScavenging = false;
     private GameObject currentPlayer;
+    private InventorySystem playerInventory; // Reference to player's inventory
     private int currentScavengeUses = 0;
     private Renderer objectRenderer;
     private Color originalColor;
@@ -51,11 +52,18 @@ public class MainComponent : MonoBehaviour
     [System.Serializable]
     public class ScavengeItem
     {
+        [Header("Basic Item Info")]
         public string itemName;
-        public GameObject itemPrefab; // Prefab to spawn
+        [TextArea(2, 4)]
+        public string itemDescription = "A useful item found while scavenging.";
+        public Sprite itemIcon; // Icon for inventory display
         public float dropChance = 1f; // Individual item drop chance
         public int minQuantity = 1;
         public int maxQuantity = 1;
+        
+        [Header("Inventory Properties")]
+        public bool isStackable = true;
+        public int maxStackSize = 10;
         
         [Header("Special Item Properties")]
         public bool isBattery = false;
@@ -66,6 +74,9 @@ public class MainComponent : MonoBehaviour
         
         public bool isKeyItem = false;
         public string keyItemID; // Unique identifier for key items
+        
+        [Header("Legacy Support")]
+        public GameObject itemPrefab; // Optional: for spawning physical items
     }
     
     private void Start()
@@ -118,39 +129,51 @@ public class MainComponent : MonoBehaviour
             // Sample Battery Item
             ScavengeItem battery = new ScavengeItem();
             battery.itemName = "Battery";
+            battery.itemDescription = "A rechargeable battery that can power your flashlight.";
             battery.dropChance = 0.4f;
             battery.isBattery = true;
             battery.batteryAmount = 25f;
             battery.minQuantity = 1;
             battery.maxQuantity = 2;
+            battery.isStackable = true;
+            battery.maxStackSize = 5;
             possibleItems.Add(battery);
             
             // Sample Health Item
             ScavengeItem healthPack = new ScavengeItem();
             healthPack.itemName = "Health Pack";
+            healthPack.itemDescription = "A medical kit that can restore your health.";
             healthPack.dropChance = 0.3f;
             healthPack.isHealthItem = true;
             healthPack.healthAmount = 20f;
             healthPack.minQuantity = 1;
             healthPack.maxQuantity = 1;
+            healthPack.isStackable = true;
+            healthPack.maxStackSize = 3;
             possibleItems.Add(healthPack);
             
             // Sample Key Item
             ScavengeItem keyCard = new ScavengeItem();
-            keyCard.itemName = "Key Card";
+            keyCard.itemName = "Access Card";
+            keyCard.itemDescription = "A security card that might unlock doors.";
             keyCard.dropChance = 0.1f;
             keyCard.isKeyItem = true;
             keyCard.keyItemID = "access_card_01";
             keyCard.minQuantity = 1;
             keyCard.maxQuantity = 1;
+            keyCard.isStackable = false;
+            keyCard.maxStackSize = 1;
             possibleItems.Add(keyCard);
             
             // Sample Rare Item
             ScavengeItem rareItem = new ScavengeItem();
             rareItem.itemName = "Emergency Flare";
+            rareItem.itemDescription = "A bright flare that can illuminate dark areas.";
             rareItem.dropChance = 0.15f;
             rareItem.minQuantity = 1;
             rareItem.maxQuantity = 3;
+            rareItem.isStackable = true;
+            rareItem.maxStackSize = 5;
             possibleItems.Add(rareItem);
         }
     }
@@ -161,6 +184,14 @@ public class MainComponent : MonoBehaviour
         {
             playerInRange = true;
             currentPlayer = other.gameObject;
+            
+            // Get player's inventory system
+            playerInventory = currentPlayer.GetComponent<InventorySystem>();
+            if (playerInventory == null)
+            {
+                Debug.LogWarning("MainComponent: Player doesn't have an InventorySystem component!");
+            }
+            
             ShowScavengePrompt();
             HighlightObject(true);
         }
@@ -172,6 +203,7 @@ public class MainComponent : MonoBehaviour
         {
             playerInRange = false;
             currentPlayer = null;
+            playerInventory = null;
             HideScavengePrompt();
             HighlightObject(false);
         }
@@ -287,7 +319,11 @@ public class MainComponent : MonoBehaviour
     
     private void GenerateRandomItem()
     {
-        if (possibleItems.Count == 0) return;
+        if (possibleItems.Count == 0)
+        {
+            ShowResultMessage("Nothing found...", Color.gray);
+            return;
+        }
         
         // Create weighted list based on drop chances
         List<ScavengeItem> availableItems = new List<ScavengeItem>();
@@ -312,6 +348,7 @@ public class MainComponent : MonoBehaviour
         // Handle different item types
         if (selectedItem.isBattery)
         {
+            // Give battery power directly to flashlight
             GiveBatteryToPlayer(selectedItem.batteryAmount * quantity);
             ShowResultMessage($"Found {quantity}x {selectedItem.itemName}!", Color.yellow);
         }
@@ -322,18 +359,53 @@ public class MainComponent : MonoBehaviour
         }
         else if (selectedItem.isKeyItem)
         {
-            GiveKeyItemToPlayer(selectedItem.keyItemID);
+            // Add key item to inventory
+            AddItemToInventory(selectedItem, 1);
             ShowResultMessage($"Found {selectedItem.itemName}!", Color.cyan);
         }
         else
         {
-            // Generic item
-            if (selectedItem.itemPrefab != null)
+            // Add regular item to inventory
+            bool success = AddItemToInventory(selectedItem, quantity);
+            if (success)
             {
-                SpawnItemPrefab(selectedItem.itemPrefab, quantity);
+                ShowResultMessage($"Found {quantity}x {selectedItem.itemName}!", Color.white);
             }
-            ShowResultMessage($"Found {quantity}x {selectedItem.itemName}!", Color.white);
+            else
+            {
+                // If inventory is full, spawn as pickup instead
+                if (selectedItem.itemPrefab != null)
+                {
+                    SpawnItemPrefab(selectedItem.itemPrefab, quantity);
+                    ShowResultMessage($"Found {quantity}x {selectedItem.itemName}! (Dropped nearby)", new Color(1f, 0.5f, 0f)); // Orange color
+                }
+                else
+                {
+                    ShowResultMessage($"Found {selectedItem.itemName} but inventory is full!", Color.red);
+                }
+            }
         }
+    }
+    
+    private bool AddItemToInventory(ScavengeItem scavengeItem, int quantity)
+    {
+        if (playerInventory == null)
+        {
+            Debug.LogWarning("No player inventory found!");
+            return false;
+        }
+        
+        // Create inventory item from scavenge item
+        InventoryItem inventoryItem = new InventoryItem(
+            scavengeItem.itemName,
+            scavengeItem.itemDescription,
+            scavengeItem.itemIcon,
+            quantity,
+            scavengeItem.isStackable,
+            scavengeItem.maxStackSize
+        );
+        
+        return playerInventory.AddItem(inventoryItem);
     }
     
     private void GiveBatteryToPlayer(float batteryAmount)
@@ -350,16 +422,31 @@ public class MainComponent : MonoBehaviour
     
     private void GiveHealthToPlayer(float healthAmount)
     {
-        // This would integrate with your health system
-        Debug.Log($"Player gained {healthAmount} health");
-        // Example: currentPlayer.GetComponent<PlayerHealth>().AddHealth(healthAmount);
+        // Try to add as inventory item first
+        ScavengeItem healthItem = new ScavengeItem();
+        healthItem.itemName = "Health Restoration";
+        healthItem.itemDescription = $"Restores {healthAmount} health points.";
+        healthItem.isStackable = true;
+        healthItem.maxStackSize = 5;
+        
+        bool addedToInventory = AddItemToInventory(healthItem, 1);
+        
+        if (addedToInventory)
+        {
+            Debug.Log($"Added health item to inventory: +{healthAmount} health");
+        }
+        else
+        {
+            // If inventory is full, apply health directly
+            Debug.Log($"Player gained {healthAmount} health directly (inventory full)");
+            // Example: currentPlayer.GetComponent<PlayerHealth>().AddHealth(healthAmount);
+        }
     }
     
     private void GiveKeyItemToPlayer(string keyItemID)
     {
-        // This would integrate with your inventory system
-        Debug.Log($"Player received key item: {keyItemID}");
-        // Example: currentPlayer.GetComponent<PlayerInventory>().AddKeyItem(keyItemID);
+        // This is now handled in GenerateRandomItem() by adding to inventory
+        Debug.Log($"Key item {keyItemID} should be added to inventory");
     }
     
     private void SpawnItemPrefab(GameObject prefab, int quantity)
